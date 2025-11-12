@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Phân tách & Nhận dạng người nói</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="page">
+    <header class="hero glass">
+      <div class="hero__inner">
+        <div class="hero__emoji">🎧</div>
+        <h1 class="hero__title">Phân tách &amp; Nhận dạng người nói</h1>
+        <p class="hero__subtitle">Phân tích cuộc hội thoại, tách theo người nói và gán nhãn tự động</p>
+      </div>
+    </header>
+    
+
+    <main class="main-grid">
+      <section class="panel panel--left">
+        <form action="{{ url_for('process') }}" method="post" enctype="multipart/form-data" id="uploadForm" class="card form-card">
+          <div class="form-card__title">Upload Audio (.mp3/.wav) *</div>
+        
+          <div class="form-grid">
+            <!-- File audio -->
+            <label class="field">
+              <span>File audio</span>
+              <input type="file" name="audio" accept="audio/*" required />
+            </label>
+        
+            <!-- Kiểu xuất file -->
+            <label class="field">
+              <span>Kiểu xuất file</span>
+              <select name="export_mode" id="export_mode" required>
+                <option value="concat" selected>Ghép liền theo speaker</option>
+                <option value="full">Dài bằng audio gốc (có khoảng lặng)</option>
+                <!-- Nếu cần, có thể thêm:
+                <option value="segments">Cắt từng đoạn (tuỳ chọn)</option> -->
+              </select>
+            </label>
+          </div>
+        
+          <button type="submit" class="btn-primary">Xử lý</button>
+        </form>
+        
+
+        <div class="card visual-card">
+          <h5>Phổ Audio Đầu Vào</h5>
+          {% if input_waveform_url %}
+            <img src="{{ input_waveform_url }}" style="width:100%; border-radius:12px; border:1px solid #ddd; box-shadow:0 4px 12px rgba(0,0,0,0.1);" alt="Input waveform">
+          {% else %}
+            <div style="height:280px; display:flex; align-items:center; justify-content:center; color:#888; background:#f9f9f9; border-radius:12px;">Đang xử lý...</div>
+          {% endif %}
+          {% if input_audio_url %}
+            <audio src="{{ input_audio_url }}" controls style="width:100%; margin-top:12px;"></audio>
+          {% endif %}
+        </div>
+
+        {% if output_waveform_url %}
+        <div class="card visual-card">
+          <h5>Phổ Audio Đầu Ra (có vùng speaker)</h5>
+          <img src="{{ output_waveform_url }}" style="width:100%; border-radius:12px; border:1px solid #ddd; box-shadow:0 4px 12px rgba(0,0,0,0.1);">
+          {% if output_audio_url %}
+          <audio src="{{ output_audio_url }}" controls style="width:100%; margin-top:12px;"></audio>
+          {% endif %}
+        </div>
+        {% endif %}
+
+      </section>
+
+      <section class="panel panel--right">
+        <h4 class="panel__title">Audio Speakers</h4>
+        <div class="speaker-grid">
+          {% if speakers %}
+            {% for sp in speakers %}
+            <div class="speaker-card" data-audio="{{ sp.url }}">
+              <div class="speaker-card__top">
+                <button type="button" class="play-btn">Play</button>
+                <div class="speaker-card__label">{{ sp.label }}</div>
+              </div>
+              {% if sp.waveform_url %}
+                <img src="{{ sp.waveform_url }}" style="width:100%; border-radius:10px; border:1px solid #ddd; margin:8px 0;" alt="Speaker waveform">
+              {% else %}
+                <div style="height:120px; display:flex; align-items:center; justify-content:center; color:#888; background:#f0f0f0; border-radius:10px; margin:8px 0;">Chưa có phổ</div>
+              {% endif %}
+              <audio src="{{ sp.url }}" controls style="width:100%;"></audio>
+              <div class="speaker-card__actions">
+                <a href="{{ sp.url }}" download>Tải xuống</a>
+              </div>
+            </div>
+            {% endfor %}
+          {% else %}
+            {% for i in range(5) %}
+            <div class="speaker-card is-empty">
+              <div class="speaker-card__top">
+                <button type="button" class="play-btn" disabled>▶</button>
+                <input class="speaker-placeholder" type="text" value="Audio Speaker {{ i }}" disabled />
+              </div>
+              <div style="height:180px; display:flex; align-items:center; justify-content:center; color:var(--muted); background:#f8f9fc; border-radius:var(--radius-md); border:1px solid var(--border);">
+                Chưa có dữ liệu
+              </div>
+            </div>
+            {% endfor %}
+          {% endif %}
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="overlay" hidden>
+    <div class="loader">
+      <div class="spinner"></div>
+      <div class="progress">
+        <div class="progress__bar" id="progressBar" style="width: 8%"></div>
+      </div>
+      <div class="text">
+        <strong>Đang xử lý…</strong><br/>
+        <span id="progressText">Vui lòng chờ (8%)</span>
+      </div>
+    </div>
+  </div>
+  
+
+  {% if output_audio_url %}
+  <script>
+    window.__OUTPUT_AUDIO__ = "{{ output_audio_url }}";
+  </script>
+  {% endif %}
+  {% if speakers %}
+  <script>
+    window.__HAS_RESULTS__ = true;
+  </script>
+  {% endif %}
+
+  <!-- Toggle with_silence khi chọn FULL -->
+  <script>
+    (function () {
+      const modeEl = document.getElementById('export_mode');
+      const silenceEl = document.getElementById('with_silence');
+
+      function syncSilenceState() {
+        const v = (modeEl && modeEl.value) || 'concat';
+        const disabled = (v === 'full');
+        if (silenceEl) {
+          silenceEl.disabled = disabled;
+          // thêm style nhẹ để người dùng biết đang bị vô hiệu
+          silenceEl.style.opacity = disabled ? 0.6 : 1;
+        }
+      }
+
+      if (modeEl) {
+        modeEl.addEventListener('change', syncSilenceState);
+        // chạy khi load lần đầu
+        syncSilenceState();
+      }
+    })();
+  </script>
+  <script>
+    // ---- 1) Hiển thị overlay + tiến trình giả lập khi submit form ----
+    (function () {
+      const form = document.getElementById('uploadForm');
+      const overlay = document.getElementById('overlay');
+      const bar = document.getElementById('progressBar');
+      const txt = document.getElementById('progressText');
+      let timer = null, p = 8;
+  
+      function startProgress() {
+        if (!overlay) return;
+        overlay.hidden = false;
+        p = 8;
+        if (bar) bar.style.width = p + '%';
+        if (txt) txt.textContent = 'Vui lòng chờ (' + p + '%)';
+        clearInterval(timer);
+        // Tiến trình tăng dần: nhanh lúc đầu, chậm về cuối
+        timer = setInterval(() => {
+          const step = p < 60 ? 2.5 : (p < 85 ? 1.2 : 0.4);
+          p = Math.min(97, p + step);
+          if (bar) bar.style.width = p + '%';
+          if (txt) txt.textContent = 'Vui lòng chờ (' + Math.floor(p) + '%)';
+        }, 180);
+      }
+  
+      if (form) {
+        form.addEventListener('submit', () => {
+          // chặn double-click + hiển thị overlay
+          const btn = form.querySelector('button[type="submit"]');
+          if (btn) { btn.disabled = true; btn.classList.add('is-busy'); }
+          startProgress();
+        });
+      }
+  
+      // Khi trang mới đã tải xong (kết quả), overlay cũ tự biến mất theo navigation
+      window.addEventListener('pageshow', () => {
+        if (overlay) overlay.hidden = true;
+        clearInterval(timer);
+      });
+    })();
+  
+    // ---- 2) Reload (F5) trên trang có kết quả -> trở về màn hình mặc định ----
+    (function () {
+      const nav = performance.getEntriesByType('navigation')[0];
+      const isReload = nav && nav.type === 'reload';
+      const hasResults = !!window.__HAS_RESULTS__;
+      if (isReload && hasResults) {
+        // Điều hướng về trang chính
+        window.location.replace('{{ url_for("index") }}');
+      }
+    })();
+  
+    // ---- 3) (tuỳ chọn) Play button phát audio trong card ----
+    (function () {
+      document.querySelectorAll('.speaker-card').forEach(card => {
+        const btn = card.querySelector('.play-btn');
+        const audio = card.querySelector('audio');
+        if (btn && audio) {
+          btn.addEventListener('click', () => {
+            if (audio.paused) { audio.play(); } else { audio.pause(); }
+          });
+        }
+      });
+    })();
+  </script>
+  
+</body>
+</html>

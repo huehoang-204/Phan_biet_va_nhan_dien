@@ -1,0 +1,89 @@
+# diar_infer_4spk.yaml
+name: &name "ClusterDiarizer"
+
+num_workers: 1
+sample_rate: 16000
+batch_size: 4
+device: "cuda:0"      # ép chạy 1 GPU duy nhất
+verbose: True
+
+diarizer:
+  # ==== ĐƯỜNG DẪN CỤ THỂ ====
+  manifest_filepath: /hdd3/quocvm/do_an/manifests_titanet/manifest_infer.json
+  out_dir: /hdd3/quocvm/do_an/out_diar_4spk
+
+  oracle_vad: False
+  collar: 0.25
+  ignore_overlap: True
+
+  vad:
+    model_path: vad_multilingual_marblenet   # hoặc đường dẫn .nemo VAD cục bộ
+    external_vad_manifest: null
+    parameters:
+      window_length_in_sec: 0.63
+      shift_length_in_sec: 0.01
+      smoothing: False
+      overlap: 0.5
+      onset: 0.9
+      offset: 0.5
+      pad_onset: 0
+      pad_offset: 0
+      min_duration_on: 0
+      min_duration_off: 0.6
+      filter_speech_first: True
+
+  speaker_embeddings:
+    model_path: "titanet_large"
+    parameters:
+      window_length_in_sec: [3.0,2.5,2.0,1.5,1.0,0.5]
+      shift_length_in_sec:  [1.5,1.25,1.0,0.75,0.5,0.25]
+      multiscale_weights:   [1,1,1,1,1,1]
+      save_embeddings: True
+
+  clustering:
+    parameters:
+      # Ép số người nói = 4 (đọc từ manifest_infer.json)
+      oracle_num_speakers: True
+      max_num_speakers: 8
+      enhanced_count_thres: 80
+      max_rp_threshold: 0.25
+      sparse_search_volume: 30
+      maj_vote_spk_count: False
+      chunk_cluster_count: 50
+      embeddings_per_chunk: 10000
+
+  # Không dùng MSDD/ASR
+  msdd_model:
+    model_path: null
+    parameters:
+      use_speaker_model_from_ckpt: True
+      infer_batch_size: 25
+      sigmoid_threshold: [0.7]
+      seq_eval_mode: False
+      split_infer: True
+      diar_window_length: 50
+      overlap_infer_spk_limit: 5
+
+  asr:
+    model_path: stt_en_conformer_ctc_large
+    parameters:
+      asr_based_vad: False
+      asr_based_vad_threshold: 1.0
+      asr_batch_size: null
+      decoder_delay_in_sec: null
+      word_ts_anchor_offset: null
+      word_ts_anchor_pos: "start"
+      fix_word_ts_with_VAD: False
+      colored_text: False
+      print_time: True
+      break_lines: False
+    ctc_decoder_parameters:
+      pretrained_language_model: null
+      beam_width: 32
+      alpha: 0.5
+      beta: 2.5
+    realigning_lm_parameters:
+      arpa_language_model: null
+      min_number_of_words: 3
+      max_number_of_words: 10
+      logprob_diff_threshold: 1.2
