@@ -25,6 +25,7 @@
 * Giao diện đẹp, có overlay “Đang xử lý…“, progress, và nút **Reload về màn hình mặc định**.
 
 ---
+<img width="550" height="311" alt="image" src="https://github.com/user-attachments/assets/db1a9e7e-9240-4ab1-a388-b260018af10d" />
 
 ## Cấu trúc repo
 
