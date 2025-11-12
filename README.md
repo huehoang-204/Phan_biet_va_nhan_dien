@@ -16,16 +16,35 @@
 </div>
 
 
-Ứng dụng web nhỏ giúp:
+
+Ứng dụng web giúp:
 
 * Tách người nói (diarization) từ file audio dài.
 * Gộp/cắt audio cho từng speaker.
 * Nhận dạng người nói bằng mô hình **NeMo** fine-tune (`.nemo`) và **đổi tên file theo nhãn**.
 * Vẽ waveform đầu vào, waveform có vùng speaker (màu theo nhãn) và waveform từng speaker.
-* Giao diện đẹp, có overlay “Đang xử lý…“, progress, và nút **Reload về màn hình mặc định**.
+* UI có overlay “Đang xử lý…”, progress và nút **Reload về màn hình mặc định**.
 
 ---
-<img width="550" height="311" alt="image" src="https://github.com/user-attachments/assets/db1a9e7e-9240-4ab1-a388-b260018af10d" />
+
+## Tổng quan
+
+Hệ thống nhận một đoạn ghi âm hội thoại, sau đó:
+
+1. Phát hiện vùng có lời nói (VAD)
+2. Rút trích embedding & gom cụm theo **speaker**
+3. Cắt / ghép audio theo tuỳ chọn
+4. **Phân loại người nói** bằng mô hình `.nemo` đã fine-tune và **đổi tên file theo nhãn**
+5. Vẽ waveform: tổng thể (overlay theo màu từng speaker) & riêng cho mỗi speaker
+
+<p align="center">
+  <img width="553" height="308" alt="image" src="https://github.com/user-attachments/assets/f8a33c71-6726-43bf-9dab-dccb122b7202" />
+
+</p>
+
+> Màu sắc của từng speaker được đồng bộ giữa “Phổ đầu ra (overlay)” và “waveform từng speaker” dựa trên **nhãn chữ** (vd: Bich, Chien, Chinh, Nam).
+
+
 
 ## Cấu trúc repo
 
